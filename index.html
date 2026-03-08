@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dishcovery — Find Restaurants Near You</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #0f0d0a;
+    --cream: #f5f0e8;
+    --warm: #f0e6d0;
+    --accent: #c8472a;
+    --accent2: #e8a045;
+    --gold: #d4a843;
+    --muted: #8a7f72;
+    --card-bg: #fdfaf4;
+    --border: #e0d8ca;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--ink);
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .header-texture {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 20% 50%, rgba(200,71,42,0.15) 0%, transparent 60%),
+      radial-gradient(circle at 80% 20%, rgba(212,168,67,0.1) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .header-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 32px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    font-weight: 900;
+    color: var(--cream);
+    letter-spacing: -2px;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .logo span { color: var(--accent); }
+
+  .tagline {
+    font-size: 0.95rem;
+    color: var(--muted);
+    font-weight: 300;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 36px;
+  }
+
+  /* SEARCH BAR */
+  .search-wrap {
+    display: flex;
+    gap: 0;
+    max-width: 680px;
+    background: var(--cream);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  }
+
+  .search-group {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    flex: 1 1 200px;
+    padding: 16px 20px;
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    color: var(--ink);
+    outline: none;
+    min-width: 0;
+  }
+
+  .search-input::placeholder { color: var(--muted); }
+
+  .divider {
+    width: 1px;
+    background: var(--border);
+    margin: 10px 0;
+    align-self: stretch;
+  }
+
+  .search-btn {
+    padding: 16px 28px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .search-btn:hover { background: #a8381f; }
+  .search-btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+  /* FILTERS */
+  .filters-bar {
+    max-width: 1100px;
+    margin: 28px auto 0;
+    padding: 0 32px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+
+  .filter-btn {
+    padding: 6px 16px;
+    border: 1.5px solid var(--border);
+    background: var(--card-bg);
+    border-radius: 100px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(200,71,42,0.05);
+  }
+
+  /* MAIN */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 32px 80px;
+  }
+
+  /* STATUS */
+  .status {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--muted);
+  }
+
+  .status-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    display: block;
+    opacity: 0.4;
+  }
+
+  .status h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8rem;
+    color: var(--ink);
+    margin-bottom: 8px;
+    opacity: 0.5;
+  }
+
+  .status p { font-size: 0.9rem; }
+
+  /* RESULTS HEADER */
+  .results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .results-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+  }
+
+  .results-count {
+    font-size: 0.85rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* GRID */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+
+  /* CARD */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 48px rgba(15,13,10,0.12);
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+    background: var(--warm);
+  }
+
+  .card-img-placeholder {
+    width: 100%;
+    height: 200px;
+    background: linear-gradient(135deg, var(--warm), var(--border));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    opacity: 0.4;
+  }
+
+  .card-body { padding: 20px; }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .card-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.2;
+    flex: 1;
+  }
+
+  .price {
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+    margin-top: 3px;
+  }
+
+  .rating-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .stars {
+    display: flex;
+    gap: 2px;
+  }
+
+  .star {
+    font-size: 0.85rem;
+    color: var(--border);
+  }
+
+  .star.filled { color: var(--gold); }
+  .star.half { color: var(--gold); opacity: 0.6; }
+
+  .rating-num {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .rating-count {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  .open-badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 100px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .open-badge.open { background: rgba(80,180,80,0.15); color: #2d7a2d; }
+  .open-badge.closed { background: rgba(200,71,42,0.12); color: var(--accent); }
+
+  .address {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 14px;
+    line-height: 1.4;
+  }
+
+  /* REVIEWS */
+  .reviews-section { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px; }
+
+  .reviews-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .review {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .review:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .review-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .reviewer-avatar {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--warm);
+  }
+
+  .reviewer-name { font-size: 0.78rem; font-weight: 500; }
+  .review-time { font-size: 0.72rem; color: var(--muted); margin-left: auto; }
+
+  .review-stars { display: flex; gap: 1px; }
+  .review-star { font-size: 0.65rem; color: var(--gold); }
+  .review-star.empty { color: var(--border); }
+
+  .review-text {
+    font-size: 0.8rem;
+    color: #4a4540;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .action-link {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: 1.5px solid var(--border);
+    color: var(--muted);
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+
+  .action-link:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* LOADING */
+  .loading { display: flex; flex-direction: column; align-items: center; padding: 80px 20px; gap: 16px; }
+
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ERROR */
+  .error-msg {
+    background: rgba(200,71,42,0.08);
+    border: 1px solid rgba(200,71,42,0.2);
+    border-radius: 4px;
+    padding: 20px 24px;
+    color: var(--accent);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 600px) {
+    .header-inner { padding: 32px 20px 28px; }
+    .search-wrap { flex-direction: column; }
+    .search-btn { padding: 14px; }
+    main { padding: 28px 20px 60px; }
+    .filters-bar { padding: 0 20px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-texture"></div>
+  <div class="header-inner">
+    <div class="logo">Dish<span>covery</span></div>
+    <div class="tagline">Real reviews. Real restaurants.</div>
+    <div class="search-wrap">
+      <div class="search-group">
+        <input class="search-input" id="locationInput" type="text" placeholder="City, neighborhood, or zip code…" />
+        <div class="divider"></div>
+        <input class="search-input" id="keywordInput" type="text" placeholder="Cuisine type (optional)…" />
+      </div>
+      <button class="search-btn" id="searchBtn" onclick="doSearch()">Search</button>
+    </div>
+  </div>
+</header>
+
+<div class="filters-bar" id="filtersBar" style="display:none">
+  <span class="filter-label">Filter:</span>
+  <button class="filter-btn active" data-min="0" onclick="setFilter(this)">All</button>
+  <button class="filter-btn" data-min="4.5" onclick="setFilter(this)">⭐ 4.5+</button>
+  <button class="filter-btn" data-min="4" onclick="setFilter(this)">⭐ 4.0+</button>
+  <button class="filter-btn" data-min="3.5" onclick="setFilter(this)">⭐ 3.5+</button>
+</div>
+
+<main>
+  <div class="status" id="statusEl">
+    <span class="status-icon">🍽️</span>
+    <h2>Hungry for something good?</h2>
+    <p>Enter a location above to discover top-rated restaurants with real reviews.</p>
+  </div>
+  <div id="resultsContainer"></div>
+</main>
+
+<script>
+  let allResults = [];
+  let activeMin = 0;
+
+  document.getElementById('locationInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  document.getElementById('keywordInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+  async function doSearch() {
+    const location = document.getElementById('locationInput').value.trim();
+    const keyword = document.getElementById('keywordInput').value.trim();
+    if (!location) {
+      document.getElementById('locationInput').focus();
+      return;
+    }
+
+    const btn = document.getElementById('searchBtn');
+    btn.disabled = true;
+    btn.textContent = 'Searching…';
+    document.getElementById('filtersBar').style.display = 'none';
+    document.getElementById('statusEl').style.display = 'none';
+    document.getElementById('resultsContainer').innerHTML = `
+      <div class="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Finding the best spots in ${location}…</div>
+      </div>`;
+
+    try {
+      const params = new URLSearchParams({ location });
+      if (keyword) params.append('keyword', keyword);
+      const res = await fetch(`/api/search?${params}`);
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message || data.error || 'Search failed');
+
+      allResults = data.results || [];
+      activeMin = 0;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.min === '0'));
+      document.getElementById('filtersBar').style.display = allResults.length ? 'flex' : 'none';
+      renderResults(location, keyword);
+    } catch (err) {
+      document.getElementById('resultsContainer').innerHTML = `
+        <div class="error-msg">⚠️ ${err.message}. Please check your location and try again.</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Search';
+    }
+  }
+
+  function setFilter(btn) {
+    activeMin = parseFloat(btn.dataset.min);
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const loc = document.getElementById('locationInput').value.trim();
+    const kw = document.getElementById('keywordInput').value.trim();
+    renderResults(loc, kw);
+  }
+
+  function renderResults(location, keyword) {
+    const filtered = allResults.filter(r => (r.rating || 0) >= activeMin);
+    const container = document.getElementById('resultsContainer');
+
+    if (!filtered.length) {
+      container.innerHTML = `
+        <div class="status">
+          <span class="status-icon">🔍</span>
+          <h2>No results found</h2>
+          <p>Try a different location or lower the rating filter.</p>
+        </div>`;
+      return;
+    }
+
+    const title = keyword ? `${keyword} in ${location}` : `Restaurants in ${location}`;
+    container.innerHTML = `
+      <div class="results-header">
+        <div class="results-title">${escHtml(title)}</div>
+        <div class="results-count">${filtered.length} place${filtered.length !== 1 ? 's' : ''} found</div>
+      </div>
+      <div class="grid" id="cardGrid"></div>`;
+
+    const grid = document.getElementById('cardGrid');
+    filtered.forEach((r, i) => {
+      const card = buildCard(r, i);
+      grid.appendChild(card);
+    });
+  }
+
+  function buildCard(r, index) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.animationDelay = `${index * 60}ms`;
+
+    const price = r.price_level != null ? '$'.repeat(r.price_level) || '$' : '';
+    const openBadge = r.is_open === true ? '<span class="open-badge open">Open</span>'
+      : r.is_open === false ? '<span class="open-badge closed">Closed</span>' : '';
+
+    const imgHtml = r.photo_ref
+      ? `<img class="card-img" src="/api/photo?ref=${encodeURIComponent(r.photo_ref)}" alt="${escHtml(r.name)}" loading="lazy" onerror="this.outerHTML='<div class=\\'card-img-placeholder\\'>🍴</div>'">`
+      : `<div class="card-img-placeholder">🍴</div>`;
+
+    const reviewsHtml = r.reviews?.length ? `
+      <div class="reviews-section">
+        <div class="reviews-label">Recent Reviews</div>
+        ${r.reviews.map(rv => `
+          <div class="review">
+            <div class="review-top">
+              <img class="reviewer-avatar" src="${escHtml(rv.profile_photo || '')}" alt="" onerror="this.style.display='none'">
+              <span class="reviewer-name">${escHtml(rv.author)}</span>
+              <span class="review-time">${escHtml(rv.time)}</span>
+            </div>
+            <div class="review-stars">${renderMiniStars(rv.rating)}</div>
+            <div class="review-text">${escHtml(rv.text)}</div>
+          </div>`).join('')}
+      </div>` : '';
+
+    const actionsHtml = (r.website || r.phone) ? `
+      <div class="card-actions">
+        ${r.website ? `<a class="action-link" href="${escHtml(r.website)}" target="_blank" rel="noopener">Website</a>` : ''}
+        ${r.phone ? `<a class="action-link" href="tel:${escHtml(r.phone)}">${escHtml(r.phone)}</a>` : ''}
+      </div>` : '';
+
+    card.innerHTML = `
+      ${imgHtml}
+      <div class="card-body">
+        <div class="card-header">
+          <div class="card-name">${escHtml(r.name)}</div>
+          <div class="price">${price}</div>
+        </div>
+        <div class="rating-row">
+          <div class="stars">${renderStars(r.rating)}</div>
+          <span class="rating-num">${r.rating?.toFixed(1) || '—'}</span>
+          <span class="rating-count">(${(r.user_ratings_total || 0).toLocaleString()})</span>
+          ${openBadge}
+        </div>
+        <div class="address">${escHtml(r.address || '')}</div>
+        ${reviewsHtml}
+        ${actionsHtml}
+      </div>`;
+
+    return card;
+  }
+
+  function renderStars(rating) {
+    if (!rating) return Array(5).fill('<span class="star">☆</span>').join('');
+    return Array.from({length: 5}, (_, i) => {
+      if (i + 1 <= Math.floor(rating)) return '<span class="star filled">★</span>';
+      if (i < rating) return '<span class="star half">★</span>';
+      return '<span class="star">☆</span>';
+    }).join('');
+  }
+
+  function renderMiniStars(rating) {
+    return Array.from({length: 5}, (_, i) =>
+      `<span class="review-star${i < rating ? '' : ' empty'}">★</span>`
+    ).join('');
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
