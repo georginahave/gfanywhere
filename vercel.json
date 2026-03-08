@@ -1,8 +1,2 @@
 {}
-```
 
-Yes, just empty curly braces — Vercel handles the `api/` folder automatically, no config needed.
-
-4. Commit with message:
-```
-Fix vercel.json - remove invalid rewrite rule
