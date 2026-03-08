@@ -261,7 +261,10 @@
 
     try {
       const params = new URLSearchParams({ location });
-      if (keyword) params.append('keyword', keyword);
+      // Combine text input keyword with active chip keywords
+      const chipKw = activeKeywords.size ? [...activeKeywords].join(' ') : '';
+      const combinedKw = [keyword, chipKw].filter(Boolean).join(' ');
+      if (combinedKw) params.append('keyword', combinedKw);
       const res = await fetch(`/api/search?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || data.error || 'Search failed');
@@ -274,9 +277,6 @@
       document.getElementById('sortSelect').value = 'default';
       document.getElementById('controlsBar').style.display = allResults.length ? 'block' : 'none';
       document.getElementById('keywordBar').style.display = allResults.length ? 'block' : 'none';
-      activeKeywords.clear();
-      document.querySelectorAll('.keyword-chip').forEach(c => c.classList.remove('active'));
-      document.getElementById('keywordClearBtn').style.display = 'none';
       applyFilters();
     } catch (err) {
       document.getElementById('resultsContainer').innerHTML = `<div class="error-msg">⚠️ ${escHtml(err.message)}. Please check your location and try again.</div>`;
@@ -315,7 +315,7 @@
     if (activeKeywords.has(kw)) { activeKeywords.delete(kw); btn.classList.remove('active'); }
     else { activeKeywords.add(kw); btn.classList.add('active'); }
     document.getElementById('keywordClearBtn').style.display = activeKeywords.size ? 'inline-block' : 'none';
-    applyFilters();
+    reSearchWithKeywords();
   }
 
   function addCustomKeyword() {
@@ -337,17 +337,44 @@
     existing.classList.add('active');
     input.value = '';
     document.getElementById('keywordClearBtn').style.display = 'inline-block';
-    applyFilters();
+    reSearchWithKeywords();
   }
 
   function clearKeywords() {
     activeKeywords.clear();
     document.querySelectorAll('.keyword-chip').forEach(c => c.classList.remove('active'));
     document.getElementById('keywordClearBtn').style.display = 'none';
-    applyFilters();
+    reSearchWithKeywords();
   }
 
   document.getElementById('customKeywordInput').addEventListener('keydown', e => { if (e.key === 'Enter') addCustomKeyword(); });
+
+  async function reSearchWithKeywords() {
+    if (!currentLocation) { applyFilters(); return; }
+
+    // Build keyword string from active chips + original text input
+    const chipKw = activeKeywords.size ? [...activeKeywords].join(' ') : '';
+    const combinedKw = [currentKeyword, chipKw].filter(Boolean).join(' ');
+    const label = activeKeywords.size
+      ? `Searching for ${escHtml([...activeKeywords].join(', '))} in ${escHtml(currentLocation)}…`
+      : `Finding the best spots in ${escHtml(currentLocation)}…`;
+
+    // Show loading state
+    document.getElementById('resultsContainer').innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">${label}</div></div>`;
+
+    try {
+      const params = new URLSearchParams({ location: currentLocation });
+      if (combinedKw) params.append('keyword', combinedKw);
+      const res = await fetch(`/api/search?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || 'Search failed');
+
+      allResults = data.results || [];
+      applyFilters();
+    } catch (err) {
+      document.getElementById('resultsContainer').innerHTML = `<div class="error-msg">⚠️ ${escHtml(err.message)}. Please try again.</div>`;
+    }
+  }
 
   function highlightKeywords(text, keywords) {
     if (!keywords.size || !text) return escHtml(text);
