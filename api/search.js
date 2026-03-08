@@ -23,7 +23,7 @@ export default async function handler(req, res) {
 
     // Step 2: Get details + reviews for each place
     const detailed = await Promise.all(places.map(async (place) => {
-      const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,rating,user_ratings_total,formatted_address,photos,reviews,price_level,opening_hours,website,formatted_phone_number,geometry&key=${apiKey}`;
+      const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,rating,user_ratings_total,formatted_address,photos,reviews,price_level,opening_hours,website,formatted_phone_number,geometry,editorial_summary,types,serves_beer,serves_wine,serves_vegetarian_food,takeout,delivery,dine_in&key=${apiKey}`;
       const detailRes = await fetch(detailUrl);
       const detailData = await detailRes.json();
       const d = detailData.result || {};
@@ -38,7 +38,12 @@ export default async function handler(req, res) {
         website: d.website,
         phone: d.formatted_phone_number,
         photo_ref: d.photos?.[0]?.photo_reference || place.photos?.[0]?.photo_reference,
-        reviews: (d.reviews || []).slice(0, 3).map(r => ({
+        description: d.editorial_summary?.overview || '',
+        types: d.types || [],
+        serves_vegetarian: d.serves_vegetarian_food || false,
+        takeout: d.takeout || false,
+        delivery: d.delivery || false,
+        reviews: (d.reviews || []).slice(0, 5).map(r => ({
           author: r.author_name,
           rating: r.rating,
           text: r.text,
