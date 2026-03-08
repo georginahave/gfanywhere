@@ -1,5 +1,8 @@
-{
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" }
-  ]
-}
+{}
+```
+
+Yes, just empty curly braces — Vercel handles the `api/` folder automatically, no config needed.
+
+4. Commit with message:
+```
+Fix vercel.json - remove invalid rewrite rule
