@@ -110,6 +110,30 @@
   .action-link { flex: 1; text-align: center; padding: 8px; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; text-decoration: none; border: 1.5px solid var(--border); color: var(--muted); border-radius: 2px; transition: all 0.15s; }
   .action-link:hover { border-color: var(--accent); color: var(--accent); }
 
+  /* REVIEW KEYWORD FILTER */
+  .keyword-bar { background: rgba(200,71,42,0.04); border-bottom: 1px solid var(--border); display: none; }
+  .keyword-inner { max-width: 1100px; margin: 0 auto; padding: 12px 32px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .keyword-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); white-space: nowrap; font-weight: 500; }
+  .keyword-chip { padding: 5px 13px; border: 1.5px solid rgba(200,71,42,0.3); background: white; border-radius: 100px; font-family: 'DM Sans', sans-serif; font-size: 0.79rem; color: var(--accent); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .keyword-chip:hover { background: rgba(200,71,42,0.08); border-color: var(--accent); }
+  .keyword-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .keyword-input-wrap { display: flex; align-items: center; gap: 0; border: 1.5px solid rgba(200,71,42,0.3); border-radius: 100px; overflow: hidden; background: white; }
+  .keyword-custom-input { padding: 5px 12px; border: none; font-family: 'DM Sans', sans-serif; font-size: 0.79rem; color: var(--ink); outline: none; background: transparent; width: 140px; }
+  .keyword-custom-input::placeholder { color: var(--muted); }
+  .keyword-add-btn { padding: 5px 12px; background: none; border: none; color: var(--accent); font-size: 0.79rem; cursor: pointer; font-family: 'DM Sans', sans-serif; font-weight: 500; white-space: nowrap; }
+  .keyword-add-btn:hover { background: rgba(200,71,42,0.08); }
+  .keyword-clear { padding: 5px 12px; border: 1.5px solid var(--border); background: white; border-radius: 100px; font-family: 'DM Sans', sans-serif; font-size: 0.79rem; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .keyword-clear:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* keyword match badge on card */
+  .keyword-match-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(200,71,42,0.1); border: 1px solid rgba(200,71,42,0.25); color: var(--accent); font-size: 0.72rem; font-weight: 500; padding: 3px 10px; border-radius: 100px; margin-bottom: 10px; }
+  .keyword-match-badge span { font-weight: 700; }
+
+  /* highlight matched text in reviews */
+  mark.kw { background: rgba(212,168,67,0.35); border-radius: 2px; padding: 0 1px; font-style: normal; }
+
+  .review-text { font-size: 0.8rem; color: #4a4540; line-height: 1.5; }
+
   .loading { display: flex; flex-direction: column; align-items: center; padding: 80px 20px; gap: 16px; }
   .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -183,6 +207,23 @@
   </div>
 </div>
 
+<!-- REVIEW KEYWORD FILTER BAR -->
+<div class="keyword-bar" id="keywordBar">
+  <div class="keyword-inner">
+    <span class="keyword-label">🔎 Filter reviews by:</span>
+    <button class="keyword-chip" data-kw="gluten-free" onclick="toggleKeywordChip(this)">gluten-free</button>
+    <button class="keyword-chip" data-kw="gluten free" onclick="toggleKeywordChip(this)">gluten free</button>
+    <button class="keyword-chip" data-kw="vegan" onclick="toggleKeywordChip(this)">vegan</button>
+    <button class="keyword-chip" data-kw="dairy-free" onclick="toggleKeywordChip(this)">dairy-free</button>
+    <button class="keyword-chip" data-kw="nut-free" onclick="toggleKeywordChip(this)">nut-free</button>
+    <div class="keyword-input-wrap">
+      <input class="keyword-custom-input" id="customKeywordInput" type="text" placeholder="Custom keyword…"/>
+      <button class="keyword-add-btn" onclick="addCustomKeyword()">+ Add</button>
+    </div>
+    <button class="keyword-clear" id="keywordClearBtn" onclick="clearKeywords()" style="display:none">✕ Clear</button>
+  </div>
+</div>
+
 <main>
   <div class="status" id="statusEl">
     <span class="status-icon">🍽️</span>
@@ -195,6 +236,7 @@
 <script>
   let allResults = [], activeMin = 0, activePrice = 0, openNowOnly = false, currentView = 'grid';
   let mapInstance = null, currentLocation = '', currentKeyword = '';
+  let activeKeywords = new Set();
 
   document.getElementById('locationInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
   document.getElementById('keywordInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
@@ -225,6 +267,10 @@
       document.getElementById('openNowBtn').classList.remove('open-active');
       document.getElementById('sortSelect').value = 'default';
       document.getElementById('controlsBar').style.display = allResults.length ? 'block' : 'none';
+      document.getElementById('keywordBar').style.display = allResults.length ? 'block' : 'none';
+      activeKeywords.clear();
+      document.querySelectorAll('.keyword-chip').forEach(c => c.classList.remove('active'));
+      document.getElementById('keywordClearBtn').style.display = 'none';
       applyFilters();
     } catch (err) {
       document.getElementById('resultsContainer').innerHTML = `<div class="error-msg">⚠️ ${escHtml(err.message)}. Please check your location and try again.</div>`;
@@ -257,6 +303,77 @@
     document.getElementById('viewMap').classList.toggle('active', v === 'map');
     applyFilters();
   }
+
+  function toggleKeywordChip(btn) {
+    const kw = btn.dataset.kw;
+    if (activeKeywords.has(kw)) { activeKeywords.delete(kw); btn.classList.remove('active'); }
+    else { activeKeywords.add(kw); btn.classList.add('active'); }
+    document.getElementById('keywordClearBtn').style.display = activeKeywords.size ? 'inline-block' : 'none';
+    applyFilters();
+  }
+
+  function addCustomKeyword() {
+    const input = document.getElementById('customKeywordInput');
+    const val = input.value.trim().toLowerCase();
+    if (!val) return;
+    // Check if chip already exists
+    let existing = document.querySelector(`.keyword-chip[data-kw="${val}"]`);
+    if (!existing) {
+      const chip = document.createElement('button');
+      chip.className = 'keyword-chip active';
+      chip.dataset.kw = val;
+      chip.textContent = val;
+      chip.onclick = function() { toggleKeywordChip(this); };
+      document.getElementById('keywordClearBtn').before(chip);
+      existing = chip;
+    }
+    activeKeywords.add(val);
+    existing.classList.add('active');
+    input.value = '';
+    document.getElementById('keywordClearBtn').style.display = 'inline-block';
+    applyFilters();
+  }
+
+  function clearKeywords() {
+    activeKeywords.clear();
+    document.querySelectorAll('.keyword-chip').forEach(c => c.classList.remove('active'));
+    document.getElementById('keywordClearBtn').style.display = 'none';
+    applyFilters();
+  }
+
+  function countKeywordMatches(reviews, keywords) {
+    if (!keywords.size || !reviews?.length) return 0;
+    let count = 0;
+    const text = reviews.map(r => r.text || '').join(' ').toLowerCase();
+    for (const kw of keywords) {
+      let pos = 0;
+      while ((pos = text.indexOf(kw, pos)) !== -1) { count++; pos += kw.length; }
+    }
+    return count;
+  }
+
+  function highlightKeywords(text, keywords) {
+    if (!keywords.size || !text) return escHtml(text);
+    // Sort by length desc to match longer phrases first
+    const sorted = [...keywords].sort((a, b) => b.length - a.length);
+    const escaped = escHtml(text);
+    let result = escaped;
+    for (const kw of sorted) {
+      const safe = escHtml(kw).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${safe})`, 'gi');
+      result = result.replace(regex, '<mark class="kw">$1</mark>');
+    }
+    return result;
+  }
+
+  function getMatchingReviews(reviews, keywords) {
+    if (!keywords.size) return reviews || [];
+    return (reviews || []).filter(rv =>
+      [...keywords].some(kw => (rv.text || '').toLowerCase().includes(kw))
+    );
+  }
+
+  document.getElementById('customKeywordInput').addEventListener('keydown', e => { if (e.key === 'Enter') addCustomKeyword(); });
 
   function applyFilters() {
     let filtered = allResults.filter(r => {
@@ -336,10 +453,17 @@
       ? `<img class="card-img" src="/api/photo?ref=${encodeURIComponent(r.photo_ref)}" alt="${escHtml(r.name)}" loading="lazy" onerror="this.outerHTML='<div class=\\'card-img-placeholder\\'>🍴</div>'">`
       : `<div class="card-img-placeholder">🍴</div>`;
 
-    const reviewsHtml = r.reviews?.length ? `
+    const reviewsToShow = activeKeywords.size ? getMatchingReviews(r.reviews, activeKeywords) : (r.reviews || []);
+    const matchCount = activeKeywords.size ? countKeywordMatches(r.reviews, activeKeywords) : 0;
+    const matchBadge = (activeKeywords.size && matchCount > 0)
+      ? `<div class="keyword-match-badge">🔎 <span>${matchCount}</span> mention${matchCount !== 1 ? 's' : ''} of "${[...activeKeywords].join('", "')}"</div>` : '';
+    const noMatchNote = (activeKeywords.size && matchCount === 0)
+      ? `<div style="font-size:0.78rem;color:var(--muted);font-style:italic;margin-bottom:10px">No reviews mention these keywords</div>` : '';
+
+    const reviewsHtml = reviewsToShow.length ? `
       <div class="reviews-section">
-        <div class="reviews-label">Recent Reviews</div>
-        ${r.reviews.map(rv => `
+        <div class="reviews-label">${activeKeywords.size ? 'Matching Reviews' : 'Recent Reviews'}</div>
+        ${reviewsToShow.map(rv => `
           <div class="review">
             <div class="review-top">
               <img class="reviewer-avatar" src="${escHtml(rv.profile_photo||'')}" alt="" onerror="this.style.display='none'">
@@ -347,9 +471,9 @@
               <span class="review-time">${escHtml(rv.time)}</span>
             </div>
             <div class="review-stars">${Array.from({length:5},(_,i)=>`<span class="review-star${i<rv.rating?'':' empty'}">★</span>`).join('')}</div>
-            <div class="review-text">${escHtml(rv.text)}</div>
+            <div class="review-text">${highlightKeywords(rv.text, activeKeywords)}</div>
           </div>`).join('')}
-      </div>` : '';
+      </div>` : (r.reviews?.length ? `<div class="reviews-section">${noMatchNote}</div>` : '');
 
     const actionsHtml = (r.website||r.phone) ? `
       <div class="card-actions">
@@ -367,7 +491,7 @@
           ${openBadge}
         </div>
         <div class="address">${escHtml(r.address||'')}</div>
-        ${reviewsHtml}${actionsHtml}
+        ${matchBadge}${noMatchNote ? '' : ''}${reviewsHtml}${actionsHtml}
       </div>`;
     return card;
   }
