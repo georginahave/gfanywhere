@@ -134,7 +134,7 @@
   .keyword-match-badge span { font-weight: 700; }
 
   /* highlight matched text in reviews */
-  mark.kw { background: rgba(212,168,67,0.35); border-radius: 2px; padding: 0 1px; font-style: normal; }
+  mark.kw { background: rgba(212,168,67,0.35); border-radius: 2px; padding: 0 1px; font-style: normal; font-weight: 700; }
 
   .review-text { font-size: 0.8rem; color: #4a4540; line-height: 1.5; }
 
@@ -378,21 +378,22 @@
 
   function restaurantMatchesKeywords(r, keywords) {
     if (!keywords.size) return true;
-    const haystack = [
-      ...( r.reviews || []).map(rv => rv.text || ''),
-      r.description || '',
-      r.name || '',
-      ...(r.types || []).map(t => t.replace(/_/g, ' ')),
-    ].join(' ').toLowerCase();
-    return [...keywords].some(kw => haystack.includes(kw));
+    // Match on review text, restaurant name, or description
+    const nameDesc = [(r.name || ''), (r.description || '')].join(' ').toLowerCase();
+    const nameDescMatch = [...keywords].some(kw => nameDesc.includes(kw));
+    const reviewMatch = (r.reviews || []).some(rv =>
+      [...keywords].some(kw => (rv.text || '').toLowerCase().includes(kw))
+    );
+    return nameDescMatch || reviewMatch;
   }
 
   function countKeywordMatches(r, keywords) {
     if (!keywords.size) return 0;
+    // Count matches in reviews, name, and description
     const haystack = [
       ...(r.reviews || []).map(rv => rv.text || ''),
+      r.name || '',
       r.description || '',
-      ...(r.types || []).map(t => t.replace(/_/g, ' ')),
     ].join(' ').toLowerCase();
     let count = 0;
     for (const kw of keywords) {
@@ -516,7 +517,7 @@
 
     card.innerHTML = `${imgHtml}
       <div class="card-body">
-        <div class="card-header"><div class="card-name">${escHtml(r.name)}</div><div class="price">${price}</div></div>
+        <div class="card-header"><div class="card-name">${activeKeywords.size ? highlightKeywords(r.name, activeKeywords) : escHtml(r.name)}</div><div class="price">${price}</div></div>
         <div class="rating-row">
           <div class="stars">${Array.from({length:5},(_,i)=>`<span class="star${i+1<=Math.floor(r.rating||0)?' filled':i<(r.rating||0)?' half':''}">★</span>`).join('')}</div>
           <span class="rating-num">${r.rating?.toFixed(1)||'—'}</span>
