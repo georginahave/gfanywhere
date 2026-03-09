@@ -270,8 +270,8 @@
 
     try {
       const params = new URLSearchParams({ location });
-      // Combine text input keyword with active chip keywords
-      const chipKw = activeKeywords.size ? [...activeKeywords].join(' ') : '';
+      // Combine text input keyword with active chip keywords; default to "gluten" if nothing active
+      const chipKw = activeKeywords.size ? [...activeKeywords].join(' ') : 'gluten';
       const combinedKw = [keyword, chipKw].filter(Boolean).join(' ');
       if (combinedKw) params.append('keyword', combinedKw);
       const res = await fetch(`/api/search?${params}`);
@@ -286,6 +286,15 @@
       document.getElementById('sortSelect').value = 'default';
       document.getElementById('controlsBar').style.display = allResults.length ? 'block' : 'none';
       document.getElementById('keywordBar').style.display = allResults.length ? 'block' : 'none';
+      // Activate "gluten" chip by default
+      if (!activeKeywords.size) {
+        const glutenChip = document.querySelector('.keyword-chip[data-kw="gluten"]');
+        if (glutenChip) {
+          activeKeywords.add('gluten');
+          glutenChip.classList.add('active');
+          updateKeywordButtons();
+        }
+      }
       applyFilters();
     } catch (err) {
       document.getElementById('resultsContainer').innerHTML = `<div class="error-msg">⚠️ ${escHtml(err.message)}. Please check your location and try again.</div>`;
