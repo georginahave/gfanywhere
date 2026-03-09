@@ -133,6 +133,9 @@
   .keyword-add-btn:hover { background: rgba(200,71,42,0.08); }
   .keyword-clear { padding: 5px 12px; border: 1.5px solid var(--border); background: white; border-radius: 100px; font-family: 'DM Sans', sans-serif; font-size: 0.79rem; color: var(--muted); cursor: pointer; transition: all 0.15s; }
   .keyword-clear:hover { border-color: var(--ink); color: var(--ink); }
+  .keyword-hide-toggle { padding: 5px 13px; border: 1.5px solid var(--border); background: white; border-radius: 100px; font-family: 'DM Sans', sans-serif; font-size: 0.79rem; color: var(--muted); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .keyword-hide-toggle:hover { border-color: var(--ink); color: var(--ink); }
+  .keyword-hide-toggle.active { background: var(--ink); color: white; border-color: var(--ink); }
 
   /* keyword match badge on card */
   .keyword-match-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(200,71,42,0.1); border: 1px solid rgba(200,71,42,0.25); color: var(--accent); font-size: 0.72rem; font-weight: 500; padding: 3px 10px; border-radius: 100px; margin-bottom: 10px; }
@@ -220,7 +223,6 @@
 <div class="keyword-bar" id="keywordBar">
   <div class="keyword-inner">
     <span class="keyword-label">🔎 Filter reviews by:</span>
-    <button class="keyword-chip" data-kw="gluten-free" onclick="toggleKeywordChip(this)">gluten-free</button>
     <button class="keyword-chip" data-kw="gluten free" onclick="toggleKeywordChip(this)">gluten free</button>
     <button class="keyword-chip" data-kw="gluten" onclick="toggleKeywordChip(this)">gluten</button>
     <button class="keyword-chip" data-kw="celiac" onclick="toggleKeywordChip(this)">celiac</button>
@@ -231,6 +233,7 @@
       <input class="keyword-custom-input" id="customKeywordInput" type="text" placeholder="Custom keyword…"/>
       <button class="keyword-add-btn" onclick="addCustomKeyword()">+ Add</button>
     </div>
+    <button class="keyword-hide-toggle" id="hideNonMatchBtn" onclick="toggleHideNonMatch()" style="display:none">Hide non-matches</button>
     <button class="keyword-clear" id="keywordClearBtn" onclick="clearKeywords()" style="display:none">✕ Clear</button>
   </div>
 </div>
@@ -248,6 +251,7 @@
   let allResults = [], activeMin = 0, activePrice = 0, openNowOnly = false, currentView = 'grid';
   let mapInstance = null, currentLocation = '', currentKeyword = '';
   let activeKeywords = new Set();
+  let hideNonMatches = false;
 
   document.getElementById('locationInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
   document.getElementById('keywordInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
@@ -262,7 +266,7 @@
     btn.disabled = true; btn.textContent = 'Searching…';
     document.getElementById('controlsBar').style.display = 'none';
     document.getElementById('statusEl').style.display = 'none';
-    document.getElementById('resultsContainer').innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">Finding the best spots in ${escHtml(location)}…</div></div>`;
+    document.getElementById('resultsContainer').innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">Searching up to 60 restaurants in ${escHtml(location)}…</div><div style="font-size:0.8rem;color:var(--muted);margin-top:4px">This may take a moment as we read all reviews</div></div>`;
 
     try {
       const params = new URLSearchParams({ location });
@@ -315,11 +319,35 @@
     applyFilters();
   }
 
+  function updateKeywordButtons() {
+    const show = activeKeywords.size ? 'inline-block' : 'none';
+    document.getElementById('keywordClearBtn').style.display = show;
+    document.getElementById('hideNonMatchBtn').style.display = show;
+    if (activeKeywords.size) {
+      // Default to hiding non-matches when keywords are active
+      hideNonMatches = true;
+      document.getElementById('hideNonMatchBtn').classList.add('active');
+      document.getElementById('hideNonMatchBtn').textContent = 'Showing matches only';
+    } else {
+      hideNonMatches = false;
+      document.getElementById('hideNonMatchBtn').classList.remove('active');
+      document.getElementById('hideNonMatchBtn').textContent = 'Hide non-matches';
+    }
+  }
+
+  function toggleHideNonMatch() {
+    hideNonMatches = !hideNonMatches;
+    const btn = document.getElementById('hideNonMatchBtn');
+    btn.classList.toggle('active', hideNonMatches);
+    btn.textContent = hideNonMatches ? 'Showing matches only' : 'Show all results';
+    applyFilters();
+  }
+
   function toggleKeywordChip(btn) {
     const kw = btn.dataset.kw;
     if (activeKeywords.has(kw)) { activeKeywords.delete(kw); btn.classList.remove('active'); }
     else { activeKeywords.add(kw); btn.classList.add('active'); }
-    document.getElementById('keywordClearBtn').style.display = activeKeywords.size ? 'inline-block' : 'none';
+    updateKeywordButtons();
     reSearchWithKeywords();
   }
 
@@ -341,14 +369,14 @@
     activeKeywords.add(val);
     existing.classList.add('active');
     input.value = '';
-    document.getElementById('keywordClearBtn').style.display = 'inline-block';
+    updateKeywordButtons();
     reSearchWithKeywords();
   }
 
   function clearKeywords() {
     activeKeywords.clear();
     document.querySelectorAll('.keyword-chip').forEach(c => c.classList.remove('active'));
-    document.getElementById('keywordClearBtn').style.display = 'none';
+    updateKeywordButtons();
     reSearchWithKeywords();
   }
 
@@ -362,10 +390,10 @@
     const combinedKw = [currentKeyword, chipKw].filter(Boolean).join(' ');
     const label = activeKeywords.size
       ? `Searching for ${escHtml([...activeKeywords].join(', '))} in ${escHtml(currentLocation)}…`
-      : `Finding the best spots in ${escHtml(currentLocation)}…`;
+      : `Searching up to 60 restaurants in ${escHtml(currentLocation)}…`;
 
     // Show loading state
-    document.getElementById('resultsContainer').innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">${label}</div></div>`;
+    document.getElementById('resultsContainer').innerHTML = `<div class="loading"><div class="spinner"></div><div class="loading-text">${label}</div><div style="font-size:0.8rem;color:var(--muted);margin-top:4px">This may take a moment as we read all reviews</div></div>`;
 
     try {
       const params = new URLSearchParams({ location: currentLocation });
@@ -409,9 +437,8 @@
     );
   }
 
-  function restaurantMatchesKeywords(r, keywords) {
-    if (!keywords.size) return true;
-    // Match on review text, restaurant name, or description
+  function restaurantHasKeywordMatch(r, keywords) {
+    if (!keywords.size) return false;
     const nameDesc = [(r.name || ''), (r.description || '')].join(' ').toLowerCase();
     const nameDescMatch = [...keywords].some(kw => nameDesc.includes(kw));
     const reviewMatch = (r.reviews || []).some(rv =>
@@ -441,12 +468,23 @@
       if ((r.rating || 0) < activeMin) return false;
       if (activePrice > 0 && r.price_level !== activePrice) return false;
       if (openNowOnly && r.is_open !== true) return false;
-      if (!restaurantMatchesKeywords(r, activeKeywords)) return false;
+      // Hide non-matching restaurants when toggle is active
+      if (hideNonMatches && activeKeywords.size && !restaurantHasKeywordMatch(r, activeKeywords)) return false;
       return true;
     });
     const sort = document.getElementById('sortSelect').value;
     if (sort === 'rating') filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     else if (sort === 'reviews') filtered.sort((a, b) => (b.user_ratings_total || 0) - (a.user_ratings_total || 0));
+    // When keywords are active, sort restaurants with matches to the top
+    if (activeKeywords.size) {
+      filtered.sort((a, b) => {
+        const aMatch = restaurantHasKeywordMatch(a, activeKeywords) ? 1 : 0;
+        const bMatch = restaurantHasKeywordMatch(b, activeKeywords) ? 1 : 0;
+        if (bMatch !== aMatch) return bMatch - aMatch;
+        // Secondary sort: more keyword mentions first
+        return countKeywordMatches(b, activeKeywords) - countKeywordMatches(a, activeKeywords);
+      });
+    }
     renderResults(filtered);
   }
 

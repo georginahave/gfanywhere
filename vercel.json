@@ -1,2 +1,10 @@
-{}
-
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" }
+  ],
+  "functions": {
+    "api/search.js": {
+      "maxDuration": 60
+    }
+  }
+}
