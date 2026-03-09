@@ -270,10 +270,10 @@
 
     try {
       const params = new URLSearchParams({ location });
-      // Combine text input keyword with active chip keywords; default to "gluten" if nothing active
-      const chipKw = activeKeywords.size ? [...activeKeywords].join(' ') : 'gluten';
-      const combinedKw = [keyword, chipKw].filter(Boolean).join(' ');
-      if (combinedKw) params.append('keyword', combinedKw);
+      if (keyword) params.append('keyword', keyword);
+      // Pass chip keywords as comma-separated for OR searches; default to gluten,celiac
+      const chipKws = activeKeywords.size ? [...activeKeywords] : ['gluten', 'celiac'];
+      params.append('keywords', chipKws.join(','));
       const res = await fetch(`/api/search?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || data.error || 'Search failed');
@@ -286,14 +286,13 @@
       document.getElementById('sortSelect').value = 'default';
       document.getElementById('controlsBar').style.display = allResults.length ? 'block' : 'none';
       document.getElementById('keywordBar').style.display = allResults.length ? 'block' : 'none';
-      // Activate "gluten" chip by default
+      // Activate "gluten" and "celiac" chips by default
       if (!activeKeywords.size) {
-        const glutenChip = document.querySelector('.keyword-chip[data-kw="gluten"]');
-        if (glutenChip) {
-          activeKeywords.add('gluten');
-          glutenChip.classList.add('active');
-          updateKeywordButtons();
+        for (const kw of ['gluten', 'celiac']) {
+          const chip = document.querySelector(`.keyword-chip[data-kw="${kw}"]`);
+          if (chip) { activeKeywords.add(kw); chip.classList.add('active'); }
         }
+        updateKeywordButtons();
       }
       applyFilters();
     } catch (err) {
@@ -394,9 +393,6 @@
   async function reSearchWithKeywords() {
     if (!currentLocation) { applyFilters(); return; }
 
-    // Build keyword string from active chips + original text input
-    const chipKw = activeKeywords.size ? [...activeKeywords].join(' ') : '';
-    const combinedKw = [currentKeyword, chipKw].filter(Boolean).join(' ');
     const label = activeKeywords.size
       ? `Searching for ${escHtml([...activeKeywords].join(', '))} in ${escHtml(currentLocation)}…`
       : `Searching up to 60 restaurants in ${escHtml(currentLocation)}…`;
@@ -406,7 +402,8 @@
 
     try {
       const params = new URLSearchParams({ location: currentLocation });
-      if (combinedKw) params.append('keyword', combinedKw);
+      if (currentKeyword) params.append('keyword', currentKeyword);
+      if (activeKeywords.size) params.append('keywords', [...activeKeywords].join(','));
       const res = await fetch(`/api/search?${params}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || data.error || 'Search failed');

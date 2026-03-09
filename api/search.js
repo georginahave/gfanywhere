@@ -3,26 +3,21 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { location, keyword } = req.query;
+  const { location, keyword, keywords } = req.query;
   if (!location) return res.status(400).json({ error: 'Location is required' });
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
-  try {
-    // Step 1: Text search — fetch ALL pages (up to 60 results across 3 pages)
-    const searchQuery = keyword ? `${keyword} restaurants in ${location}` : `restaurants in ${location}`;
-    const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&type=restaurant&key=${apiKey}`;
-    const searchRes = await fetch(searchUrl);
+  // Helper: fetch all pages for a single text search query (up to 60 results)
+  async function fetchAllPages(query) {
+    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&type=restaurant&key=${apiKey}`;
+    const searchRes = await fetch(url);
     const searchData = await searchRes.json();
-
-    if (searchData.status !== 'OK' && searchData.status !== 'ZERO_RESULTS') {
-      return res.status(500).json({ error: searchData.status, message: searchData.error_message });
-    }
+    if (searchData.status !== 'OK' && searchData.status !== 'ZERO_RESULTS') return [];
 
     let places = searchData.results || [];
     let nextToken = searchData.next_page_token;
 
-    // Fetch page 2 and 3 if available (Google requires ~2s delay for token)
     for (let page = 2; page <= 3 && nextToken; page++) {
       await new Promise(r => setTimeout(r, 2000));
       const pageUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?pagetoken=${nextToken}&key=${apiKey}`;
@@ -33,16 +28,48 @@ export default async function handler(req, res) {
       }
       nextToken = pageData.next_page_token;
     }
+    return places;
+  }
 
-    // Step 2: Get details + reviews for each place (in parallel batches of 10)
+  try {
+    // Step 1: Build search queries — one per keyword for OR logic
+    // "keywords" param = comma-separated list for OR searches
+    // "keyword" param = legacy single keyword (cuisine type from text input)
+    const kwList = keywords ? keywords.split(',').map(k => k.trim()).filter(Boolean) : [];
+    const cuisineKw = keyword || '';
+
+    let allPlaces = [];
+    const seenPlaceIds = new Set();
+
+    if (kwList.length > 0) {
+      // Run a separate search for EACH keyword (OR logic)
+      const searches = kwList.map(kw => {
+        const q = cuisineKw ? `${kw} ${cuisineKw} restaurants in ${location}` : `${kw} restaurants in ${location}`;
+        return fetchAllPages(q);
+      });
+      const results = await Promise.all(searches);
+      for (const places of results) {
+        for (const p of places) {
+          if (!seenPlaceIds.has(p.place_id)) {
+            seenPlaceIds.add(p.place_id);
+            allPlaces.push(p);
+          }
+        }
+      }
+    } else if (cuisineKw) {
+      allPlaces = await fetchAllPages(`${cuisineKw} restaurants in ${location}`);
+    } else {
+      allPlaces = await fetchAllPages(`restaurants in ${location}`);
+    }
+
+    // Step 2: Get details + reviews for each unique place (in parallel batches of 10)
     const batchSize = 10;
     const detailed = [];
 
-    for (let i = 0; i < places.length; i += batchSize) {
-      const batch = places.slice(i, i + batchSize);
+    for (let i = 0; i < allPlaces.length; i += batchSize) {
+      const batch = allPlaces.slice(i, i + batchSize);
       const batchResults = await Promise.all(batch.map(async (place) => {
         try {
-          // Fetch both "most_relevant" and "newest" reviews to maximize coverage
           const fields = 'name,rating,user_ratings_total,formatted_address,photos,reviews,price_level,opening_hours,website,formatted_phone_number,geometry,editorial_summary,types';
           const [relevantRes, newestRes] = await Promise.all([
             fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=${fields}&reviews_sort=most_relevant&key=${apiKey}`),
@@ -90,7 +117,6 @@ export default async function handler(req, res) {
             lng: d.geometry?.location?.lng,
           };
         } catch (e) {
-          // If a single place fails, return basic info without details
           return {
             place_id: place.place_id,
             name: place.name,
