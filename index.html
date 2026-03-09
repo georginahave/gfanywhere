@@ -95,6 +95,11 @@
 
   .reviews-section { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px; }
   .reviews-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 10px; }
+  .reviews-scroll { max-height: 400px; overflow-y: auto; padding-right: 4px; }
+  .reviews-scroll::-webkit-scrollbar { width: 5px; }
+  .reviews-scroll::-webkit-scrollbar-track { background: transparent; }
+  .reviews-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .reviews-scroll::-webkit-scrollbar-thumb:hover { background: var(--muted); }
   .review { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
   .review:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
   .review-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -519,9 +524,11 @@
     const descMatch = (activeKeywords.size && r.description && [...activeKeywords].some(kw => r.description.toLowerCase().includes(kw)))
       ? `<div class="description-match">${highlightKeywords(r.description, activeKeywords)}</div>` : '';
 
+    const hasKw = activeKeywords.size > 0;
     const reviewsHtml = reviewsToShow.length ? `
       <div class="reviews-section">
-        <div class="reviews-label">${activeKeywords.size ? 'Matching Reviews' : 'Recent Reviews'}</div>
+        <div class="reviews-label">${hasKw ? `Matching Reviews (${reviewsToShow.length})` : 'Recent Reviews'}</div>
+        <div class="${hasKw ? 'reviews-scroll' : ''}">
         ${reviewsToShow.map((rv, ri) => {
           const uid = `rv-${index}-${ri}`;
           return `<div class="review">
@@ -531,10 +538,11 @@
               <span class="review-time">${escHtml(rv.time)}</span>
             </div>
             <div class="review-stars">${Array.from({length:5},(_,i)=>`<span class="review-star${i<rv.rating?'':' empty'}">★</span>`).join('')}</div>
-            <div class="review-text collapsed" id="${uid}">${highlightKeywords(rv.text, activeKeywords)}</div>
-            <button class="review-expand-btn" onclick="toggleReview('${uid}', this)">Show more</button>
+            <div class="review-text${hasKw ? '' : ' collapsed'}" id="${uid}">${highlightKeywords(rv.text, activeKeywords)}</div>
+            ${hasKw ? '' : `<button class="review-expand-btn" onclick="toggleReview('${uid}', this)">Show more</button>`}
           </div>`;
         }).join('')}
+        </div>
       </div>` : '';
 
     const actionsHtml = (r.website||r.phone) ? `

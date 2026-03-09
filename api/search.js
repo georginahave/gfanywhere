@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
 
   try {
-    // Step 1: Text search for restaurants
+    // Step 1: Text search for restaurants — fetch up to 40 results (2 pages)
     const searchQuery = keyword ? `${keyword} restaurants in ${location}` : `restaurants in ${location}`;
     const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&type=restaurant&key=${apiKey}`;
     const searchRes = await fetch(searchUrl);
@@ -19,11 +19,25 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: searchData.status, message: searchData.error_message });
     }
 
-    const places = (searchData.results || []).slice(0, 12);
+    let places = searchData.results || [];
+
+    // Fetch second page if available (Google requires ~2s delay before next_page_token is valid)
+    if (searchData.next_page_token) {
+      await new Promise(r => setTimeout(r, 2000));
+      const page2Url = `https://maps.googleapis.com/maps/api/place/textsearch/json?pagetoken=${searchData.next_page_token}&key=${apiKey}`;
+      const page2Res = await fetch(page2Url);
+      const page2Data = await page2Res.json();
+      if (page2Data.status === 'OK' && page2Data.results) {
+        places = places.concat(page2Data.results);
+      }
+    }
+
+    // Cap at 30 to keep detail requests reasonable
+    places = places.slice(0, 30);
 
     // Step 2: Get details + reviews for each place
     const detailed = await Promise.all(places.map(async (place) => {
-      const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,rating,user_ratings_total,formatted_address,photos,reviews,price_level,opening_hours,website,formatted_phone_number,geometry,editorial_summary,types,serves_beer,serves_wine,serves_vegetarian_food,takeout,delivery,dine_in&key=${apiKey}`;
+      const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,rating,user_ratings_total,formatted_address,photos,reviews,price_level,opening_hours,website,formatted_phone_number,geometry,editorial_summary,types,serves_beer,serves_wine,serves_vegetarian_food,takeout,delivery,dine_in&reviews_sort=newest&key=${apiKey}`;
       const detailRes = await fetch(detailUrl);
       const detailData = await detailRes.json();
       const d = detailData.result || {};
@@ -43,7 +57,7 @@ export default async function handler(req, res) {
         serves_vegetarian: d.serves_vegetarian_food || false,
         takeout: d.takeout || false,
         delivery: d.delivery || false,
-        reviews: (d.reviews || []).slice(0, 5).map(r => ({
+        reviews: (d.reviews || []).map(r => ({
           author: r.author_name,
           rating: r.rating,
           text: r.text,
