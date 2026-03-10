@@ -41,15 +41,21 @@ export default async function handler(req, res) {
     let allPlaces = [];
     const seenPlaceIds = new Set();
 
+    // Track which keyword searches returned each restaurant
+    const placeKeywordSources = {};
+
     if (kwList.length > 0) {
       // Run a separate search for EACH keyword (OR logic)
       const searches = kwList.map(kw => {
         const q = cuisineKw ? `${kw} ${cuisineKw} restaurants in ${location}` : `${kw} restaurants in ${location}`;
-        return fetchAllPages(q);
+        return fetchAllPages(q).then(places => ({ kw, places }));
       });
       const results = await Promise.all(searches);
-      for (const places of results) {
+      for (const { kw, places } of results) {
         for (const p of places) {
+          // Tag this place with the keyword that found it
+          if (!placeKeywordSources[p.place_id]) placeKeywordSources[p.place_id] = [];
+          if (!placeKeywordSources[p.place_id].includes(kw)) placeKeywordSources[p.place_id].push(kw);
           if (!seenPlaceIds.has(p.place_id)) {
             seenPlaceIds.add(p.place_id);
             allPlaces.push(p);
@@ -113,6 +119,7 @@ export default async function handler(req, res) {
             description: d.editorial_summary?.overview || '',
             types: d.types || [],
             reviews: allReviews,
+            matched_keywords: placeKeywordSources[place.place_id] || [],
             lat: d.geometry?.location?.lat,
             lng: d.geometry?.location?.lng,
           };
@@ -124,6 +131,7 @@ export default async function handler(req, res) {
             user_ratings_total: place.user_ratings_total,
             address: place.formatted_address,
             reviews: [],
+            matched_keywords: placeKeywordSources[place.place_id] || [],
             lat: place.geometry?.location?.lat,
             lng: place.geometry?.location?.lng,
           };
