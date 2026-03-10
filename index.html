@@ -331,16 +331,15 @@
     const show = activeKeywords.size ? 'inline-block' : 'none';
     document.getElementById('keywordClearBtn').style.display = show;
     document.getElementById('hideNonMatchBtn').style.display = show;
-    if (activeKeywords.size) {
-      // Default to hiding non-matches when keywords are active
-      hideNonMatches = true;
-      document.getElementById('hideNonMatchBtn').classList.add('active');
-      document.getElementById('hideNonMatchBtn').textContent = 'Showing matches only';
-    } else {
+    if (!activeKeywords.size) {
       hideNonMatches = false;
       document.getElementById('hideNonMatchBtn').classList.remove('active');
       document.getElementById('hideNonMatchBtn').textContent = 'Hide non-matches';
     }
+    // Update button text to reflect current state
+    const btn = document.getElementById('hideNonMatchBtn');
+    btn.classList.toggle('active', hideNonMatches);
+    btn.textContent = hideNonMatches ? 'Showing matches only' : 'Hide non-matches';
   }
 
   function toggleHideNonMatch() {
