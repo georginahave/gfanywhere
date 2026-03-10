@@ -271,8 +271,8 @@
     try {
       const params = new URLSearchParams({ location });
       if (keyword) params.append('keyword', keyword);
-      // Pass chip keywords as comma-separated for OR searches; default to gluten,celiac
-      const chipKws = activeKeywords.size ? [...activeKeywords] : ['gluten', 'celiac'];
+      // Pass chip keywords as comma-separated for OR searches; default to gluten free,celiac
+      const chipKws = activeKeywords.size ? [...activeKeywords] : ['gluten free', 'celiac'];
       params.append('keywords', chipKws.join(','));
       const res = await fetch(`/api/search?${params}`);
       const data = await res.json();
@@ -286,9 +286,9 @@
       document.getElementById('sortSelect').value = 'default';
       document.getElementById('controlsBar').style.display = allResults.length ? 'block' : 'none';
       document.getElementById('keywordBar').style.display = allResults.length ? 'block' : 'none';
-      // Activate "gluten" and "celiac" chips by default
+      // Activate "gluten free" and "celiac" chips by default
       if (!activeKeywords.size) {
-        for (const kw of ['gluten', 'celiac']) {
+        for (const kw of ['gluten free', 'celiac']) {
           const chip = document.querySelector(`.keyword-chip[data-kw="${kw}"]`);
           if (chip) { activeKeywords.add(kw); chip.classList.add('active'); }
         }
@@ -415,6 +415,12 @@
     }
   }
 
+  // Normalize text: treat hyphens, dashes, and extra spaces as equivalent to a single space
+  function norm(str) { return str.toLowerCase().replace(/[-–—]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+  // Check if normalized text contains the normalized keyword
+  function normIncludes(text, kw) { return norm(text).includes(norm(kw)); }
+
   function highlightKeywords(text, keywords) {
     if (!keywords.size || !text) return escHtml(text);
     // Sort by length desc to match longer phrases first
@@ -422,8 +428,10 @@
     const escaped = escHtml(text);
     let result = escaped;
     for (const kw of sorted) {
-      const safe = escHtml(kw).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(${safe})`, 'gi');
+      // Build regex that matches the keyword with hyphens or spaces between words
+      const words = kw.trim().split(/\s+/);
+      const pattern = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\-–—]+');
+      const regex = new RegExp(`(${pattern})`, 'gi');
       result = result.replace(regex, '<mark class="kw">$1</mark>');
     }
     return result;
@@ -439,32 +447,32 @@
   function getMatchingReviews(reviews, keywords) {
     if (!keywords.size) return reviews || [];
     return (reviews || []).filter(rv =>
-      [...keywords].some(kw => (rv.text || '').toLowerCase().includes(kw))
+      [...keywords].some(kw => normIncludes(rv.text || '', kw))
     );
   }
 
   function restaurantHasKeywordMatch(r, keywords) {
     if (!keywords.size) return false;
-    const nameDesc = [(r.name || ''), (r.description || '')].join(' ').toLowerCase();
-    const nameDescMatch = [...keywords].some(kw => nameDesc.includes(kw));
+    const nameDesc = [(r.name || ''), (r.description || '')].join(' ');
+    const nameDescMatch = [...keywords].some(kw => normIncludes(nameDesc, kw));
     const reviewMatch = (r.reviews || []).some(rv =>
-      [...keywords].some(kw => (rv.text || '').toLowerCase().includes(kw))
+      [...keywords].some(kw => normIncludes(rv.text || '', kw))
     );
     return nameDescMatch || reviewMatch;
   }
 
   function countKeywordMatches(r, keywords) {
     if (!keywords.size) return 0;
-    // Count matches in reviews, name, and description
-    const haystack = [
+    const haystack = norm([
       ...(r.reviews || []).map(rv => rv.text || ''),
       r.name || '',
       r.description || '',
-    ].join(' ').toLowerCase();
+    ].join(' '));
     let count = 0;
     for (const kw of keywords) {
+      const nkw = norm(kw);
       let pos = 0;
-      while ((pos = haystack.indexOf(kw, pos)) !== -1) { count++; pos += kw.length; }
+      while ((pos = haystack.indexOf(nkw, pos)) !== -1) { count++; pos += nkw.length; }
     }
     return count;
   }
@@ -565,7 +573,7 @@
       ? `<div class="keyword-match-badge">🔎 <span>${matchCount}</span> mention${matchCount !== 1 ? 's' : ''} of "${[...activeKeywords].join('", "')}"</div>` : '';
 
     // Description match
-    const descMatch = (activeKeywords.size && r.description && [...activeKeywords].some(kw => r.description.toLowerCase().includes(kw)))
+    const descMatch = (activeKeywords.size && r.description && [...activeKeywords].some(kw => normIncludes(r.description, kw)))
       ? `<div class="description-match">${highlightKeywords(r.description, activeKeywords)}</div>` : '';
 
     const hasKw = activeKeywords.size > 0;
