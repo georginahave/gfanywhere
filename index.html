@@ -251,7 +251,7 @@
   let allResults = [], activeMin = 0, activePrice = 0, openNowOnly = false, currentView = 'grid';
   let mapInstance = null, currentLocation = '', currentKeyword = '';
   let activeKeywords = new Set();
-  let hideNonMatches = false;
+  let hideNonMatches = true;
 
   document.getElementById('locationInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
   document.getElementById('keywordInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
@@ -332,14 +332,11 @@
     document.getElementById('keywordClearBtn').style.display = show;
     document.getElementById('hideNonMatchBtn').style.display = show;
     if (!activeKeywords.size) {
-      hideNonMatches = false;
-      document.getElementById('hideNonMatchBtn').classList.remove('active');
-      document.getElementById('hideNonMatchBtn').textContent = 'Hide non-matches';
+      hideNonMatches = true;
     }
-    // Update button text to reflect current state
     const btn = document.getElementById('hideNonMatchBtn');
     btn.classList.toggle('active', hideNonMatches);
-    btn.textContent = hideNonMatches ? 'Showing matches only' : 'Hide non-matches';
+    btn.textContent = hideNonMatches ? 'Showing matches only' : 'Show all results';
   }
 
   function toggleHideNonMatch() {
@@ -452,6 +449,12 @@
 
   function restaurantHasKeywordMatch(r, keywords) {
     if (!keywords.size) return false;
+    // Trust Google: if Google returned this restaurant for a keyword search, it's a match
+    const googleMatch = (r.matched_keywords || []).some(mk =>
+      [...keywords].some(kw => normIncludes(mk, kw) || normIncludes(kw, mk))
+    );
+    if (googleMatch) return true;
+    // Also check reviews, name, and description directly
     const nameDesc = [(r.name || ''), (r.description || '')].join(' ');
     const nameDescMatch = [...keywords].some(kw => normIncludes(nameDesc, kw));
     const reviewMatch = (r.reviews || []).some(rv =>
