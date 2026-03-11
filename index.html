@@ -569,22 +569,29 @@
       ? `<img class="card-img" src="/api/photo?ref=${encodeURIComponent(r.photo_ref)}" alt="${escHtml(r.name)}" loading="lazy" onerror="this.outerHTML='<div class=\\'card-img-placeholder\\'>🍴</div>'">`
       : `<div class="card-img-placeholder">🍴</div>`;
 
-    const reviewsToShow = activeKeywords.size ? getMatchingReviews(r.reviews, activeKeywords) : (r.reviews || []);
+    const matchingReviews = activeKeywords.size ? getMatchingReviews(r.reviews, activeKeywords) : [];
+    const nonMatchingReviews = activeKeywords.size
+      ? (r.reviews || []).filter(rv => !matchingReviews.includes(rv))
+      : (r.reviews || []);
     const matchCount = activeKeywords.size ? countKeywordMatches(r, activeKeywords) : 0;
-    const matchBadge = (activeKeywords.size && matchCount > 0)
-      ? `<div class="keyword-match-badge">🔎 <span>${matchCount}</span> mention${matchCount !== 1 ? 's' : ''} of "${[...activeKeywords].join('", "')}"</div>` : '';
+    const isGoogleMatch = activeKeywords.size && (r.matched_keywords || []).length > 0;
+    const matchBadge = (activeKeywords.size && (matchCount > 0 || isGoogleMatch))
+      ? `<div class="keyword-match-badge">🔎 ${matchCount > 0 ? `<span>${matchCount}</span> mention${matchCount !== 1 ? 's' : ''}` : 'Google match'} for "${[...activeKeywords].join('", "')}"</div>` : '';
 
     // Description match
     const descMatch = (activeKeywords.size && r.description && [...activeKeywords].some(kw => normIncludes(r.description, kw)))
       ? `<div class="description-match">${highlightKeywords(r.description, activeKeywords)}</div>` : '';
 
     const hasKw = activeKeywords.size > 0;
-    const reviewsHtml = reviewsToShow.length ? `
+    // When keywords active: show matching reviews first (expanded + highlighted), then remaining reviews (collapsed)
+    const allReviewsForCard = hasKw ? [...matchingReviews, ...nonMatchingReviews] : (r.reviews || []);
+    const reviewsHtml = allReviewsForCard.length ? `
       <div class="reviews-section">
-        <div class="reviews-label">${hasKw ? `Matching Reviews (${reviewsToShow.length})` : 'Recent Reviews'}</div>
+        <div class="reviews-label">${hasKw ? (matchingReviews.length ? `Matching Reviews (${matchingReviews.length})${nonMatchingReviews.length ? ` + ${nonMatchingReviews.length} more` : ''}` : `All Reviews (${allReviewsForCard.length})`) : 'Recent Reviews'}</div>
         <div class="${hasKw ? 'reviews-scroll' : ''}">
-        ${reviewsToShow.map((rv, ri) => {
+        ${allReviewsForCard.map((rv, ri) => {
           const uid = `rv-${index}-${ri}`;
+          const isMatch = hasKw && matchingReviews.includes(rv);
           return `<div class="review">
             <div class="review-top">
               <img class="reviewer-avatar" src="${escHtml(rv.profile_photo||'')}" alt="" onerror="this.style.display='none'">
@@ -592,8 +599,8 @@
               <span class="review-time">${escHtml(rv.time)}</span>
             </div>
             <div class="review-stars">${Array.from({length:5},(_,i)=>`<span class="review-star${i<rv.rating?'':' empty'}">★</span>`).join('')}</div>
-            <div class="review-text${hasKw ? '' : ' collapsed'}" id="${uid}">${highlightKeywords(rv.text, activeKeywords)}</div>
-            ${hasKw ? '' : `<button class="review-expand-btn" onclick="toggleReview('${uid}', this)">Show more</button>`}
+            <div class="review-text${isMatch ? '' : ' collapsed'}" id="${uid}">${highlightKeywords(rv.text, activeKeywords)}</div>
+            ${isMatch ? '' : `<button class="review-expand-btn" onclick="toggleReview('${uid}', this)">Show more</button>`}
           </div>`;
         }).join('')}
         </div>
