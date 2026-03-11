@@ -45,17 +45,24 @@ export default async function handler(req, res) {
     const placeKeywordSources = {};
 
     if (kwList.length > 0) {
-      // Run a separate search for EACH keyword (OR logic)
+      // Run a separate search for EACH keyword (OR logic) + a general search
+      // The general search catches restaurants that Google doesn't return for keyword-specific queries
       const searches = kwList.map(kw => {
         const q = cuisineKw ? `${kw} ${cuisineKw} restaurants in ${location}` : `${kw} restaurants in ${location}`;
         return fetchAllPages(q).then(places => ({ kw, places }));
       });
+      // Also run a general restaurants search to maximize coverage
+      const generalQ = cuisineKw ? `${cuisineKw} restaurants in ${location}` : `restaurants in ${location}`;
+      searches.push(fetchAllPages(generalQ).then(places => ({ kw: '__general__', places })));
+
       const results = await Promise.all(searches);
       for (const { kw, places } of results) {
         for (const p of places) {
-          // Tag this place with the keyword that found it
-          if (!placeKeywordSources[p.place_id]) placeKeywordSources[p.place_id] = [];
-          if (!placeKeywordSources[p.place_id].includes(kw)) placeKeywordSources[p.place_id].push(kw);
+          // Tag this place with the keyword that found it (skip general tag)
+          if (kw !== '__general__') {
+            if (!placeKeywordSources[p.place_id]) placeKeywordSources[p.place_id] = [];
+            if (!placeKeywordSources[p.place_id].includes(kw)) placeKeywordSources[p.place_id].push(kw);
+          }
           if (!seenPlaceIds.has(p.place_id)) {
             seenPlaceIds.add(p.place_id);
             allPlaces.push(p);

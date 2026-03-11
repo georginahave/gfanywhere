@@ -271,8 +271,8 @@
     try {
       const params = new URLSearchParams({ location });
       if (keyword) params.append('keyword', keyword);
-      // Pass chip keywords as comma-separated for OR searches; default to gluten free,celiac
-      const chipKws = activeKeywords.size ? [...activeKeywords] : ['gluten free', 'celiac'];
+      // Pass chip keywords as comma-separated for OR searches; default to gluten,celiac
+      const chipKws = activeKeywords.size ? [...activeKeywords] : ['gluten', 'celiac'];
       params.append('keywords', chipKws.join(','));
       const res = await fetch(`/api/search?${params}`);
       const data = await res.json();
@@ -286,9 +286,9 @@
       document.getElementById('sortSelect').value = 'default';
       document.getElementById('controlsBar').style.display = allResults.length ? 'block' : 'none';
       document.getElementById('keywordBar').style.display = allResults.length ? 'block' : 'none';
-      // Activate "gluten free" and "celiac" chips by default
+      // Activate "gluten" and "celiac" chips by default
       if (!activeKeywords.size) {
-        for (const kw of ['gluten free', 'celiac']) {
+        for (const kw of ['gluten', 'celiac']) {
           const chip = document.querySelector(`.keyword-chip[data-kw="${kw}"]`);
           if (chip) { activeKeywords.add(kw); chip.classList.add('active'); }
         }
